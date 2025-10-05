@@ -1,0 +1,12 @@
+# Local environment variables — DO NOT commit this file to Git
+# Add this file to .gitignore
+
+# Gemini / Google Generative API key
+GEMINI_API_KEY=AIzaSyC5rSwNz0X3WELZQWTrBkfzprQUd3Uw6mw
+
+# Model for Gemini requests (optional)
+GEMINI_MODEL=models/text-bison-001
+
+# Optional: path to Firebase service account JSON (use host env vars in production)
+# FIREBASE_SERVICE_ACCOUNT_JSON='{"type":...}'
+# GOOGLE_APPLICATION_CREDENTIALS=./serviceAccount.json
