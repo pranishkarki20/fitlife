@@ -37,6 +37,7 @@
     .form-section {
       flex: 1;
       padding: 40px;
+      position: relative;
     }
     .tab { cursor: pointer; padding: 10px; display: inline-block; font-weight: 600; }
     .tab.active { color: #1a2a6c; border-bottom: 2px solid #1a2a6c; }
@@ -52,19 +53,19 @@
       width: 100%;
       font-weight: 600;
     }
-    .error { color: red; font-size: 0.9rem; margin-top: 5px; }
+    .error { color: red; font-size: 0.9rem; margin-top: 5px; min-height:1.2em; }
     .social-btn { cursor: pointer; margin: 10px; display: inline-block; font-size: 24px; }
     .social-btn.google { color: #DB4437; }
+    #authMessage { color:#b21f1f; margin-bottom:10px; font-size:0.95rem; min-height:1.2em; }
   </style>
 </head>
 <body>
-
   <div class="container">
     <div class="welcome-section">
       <h1>Transform Your Life With FitLife</h1>
       <p>Personalized workouts, nutrition tracking & more.</p>
     </div>
-    
+
     <div class="form-section">
       <div style="text-align:center;">
         <h2>Fit<span style="color:#fdbb2d;">Life</span></h2>
@@ -74,6 +75,9 @@
         <span class="tab active" id="login-tab">Login</span>
         <span class="tab" id="register-tab">Register</span>
       </div>
+
+      <!-- inline auth message -->
+      <div id="authMessage" aria-live="polite"></div>
 
       <form id="login-form">
         <input type="email" id="login-email" placeholder="Email" required />
@@ -100,9 +104,8 @@
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-
   <script>
-    // ✅ Firebase configuration
+    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyCYOzxUWAPd4ifIKUOXY0TQQvWJStRaeYk",
       authDomain: "fitlife-8e768.firebaseapp.com",
@@ -112,20 +115,53 @@
       appId: "1:721770808033:web:adb64336eb674c3679eda0"
     };
     firebase.initializeApp(firebaseConfig);
+
     const auth = firebase.auth();
     const googleProvider = new firebase.auth.GoogleAuthProvider();
 
-    // ✅ Google Sign-In
-    document.getElementById("google-login").addEventListener("click", async () => {
+    // Show inline messages
+    function showAuthMessage(msg) {
+      const el = document.getElementById('authMessage');
+      if (el) el.textContent = msg || '';
+    }
+
+    // Google sign-in / sign-up handler
+    async function handleGoogleSignIn() {
+      showAuthMessage('');
       try {
-        await auth.signInWithPopup(googleProvider);
-        window.location.href = "dashboard.html";
-      } catch (error) {
-        document.getElementById("login-error").textContent = error.message;
+        const result = await auth.signInWithPopup(googleProvider);
+        const isNew = result?.additionalUserInfo?.isNewUser;
+
+        // If new Google user, treat this as sign-up: keep them signed in and redirect
+        if (isNew) {
+          // Optionally you can prefill additional profile fields or force completion
+          // e.g. await result.user.updateProfile({ displayName: result.user.displayName });
+
+          // Redirect to dashboard (user created by Firebase automatically)
+          window.location.href = 'dashboard.html';
+          return;
+        }
+
+        // Existing Google-linked account -> sign in normally
+        window.location.href = 'dashboard.html';
+      } catch (err) {
+        console.error('Google sign-in error', err);
+        showAuthMessage(err?.message || 'Google sign-in failed');
       }
+    }
+
+    // Ensure no demo alert handlers are attached to social buttons
+    document.querySelectorAll('.social-btn').forEach(btn => {
+      // remove inline/demo handlers by replacing with a clean clone
+      const clean = btn.cloneNode(true);
+      btn.parentNode.replaceChild(clean, btn);
     });
 
-    // ✅ Tabs toggle
+    // Wire Google button only
+    const googleBtn = document.getElementById('google-login');
+    if (googleBtn) googleBtn.addEventListener('click', (e) => { e.preventDefault(); handleGoogleSignIn(); });
+
+    // Tabs toggle
     const loginTab = document.getElementById("login-tab");
     const registerTab = document.getElementById("register-tab");
     const loginForm = document.getElementById("login-form");
@@ -136,6 +172,7 @@
       registerTab.classList.remove("active");
       loginForm.classList.remove("hidden");
       registerForm.classList.add("hidden");
+      showAuthMessage('');
     });
 
     registerTab.addEventListener("click", () => {
@@ -143,29 +180,36 @@
       loginTab.classList.remove("active");
       registerForm.classList.remove("hidden");
       loginForm.classList.add("hidden");
+      showAuthMessage('');
     });
 
-    // ✅ Email/Password Login
+    // Email/Password Login
     loginForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const email = document.getElementById("login-email").value;
+      document.getElementById("login-error").textContent = '';
+      const email = document.getElementById("login-email").value.trim();
       const password = document.getElementById("login-password").value;
       try {
         await auth.signInWithEmailAndPassword(email, password);
         window.location.href = "dashboard.html";
       } catch (error) {
-        document.getElementById("login-error").textContent = error.message;
+        document.getElementById("login-error").textContent = error.message || 'Login failed';
       }
     });
 
-    // ✅ Email/Password Registration
+    // Email/Password Registration
     registerForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const name = document.getElementById("register-name").value;
-      const email = document.getElementById("register-email").value;
+      document.getElementById("register-error").textContent = '';
+      const name = document.getElementById("register-name").value.trim();
+      const email = document.getElementById("register-email").value.trim();
       const password = document.getElementById("register-password").value;
       const confirm = document.getElementById("register-confirm").value;
 
+      if (!name) {
+        document.getElementById("register-error").textContent = "Please enter your name";
+        return;
+      }
       if (password !== confirm) {
         document.getElementById("register-error").textContent = "Passwords do not match!";
         return;
@@ -177,11 +221,12 @@
 
       try {
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        // set displayName so dashboard shows it
         await userCredential.user.updateProfile({ displayName: name });
-        alert("Account created! Please login now.");
-        loginTab.click();
+        // user is signed in automatically — redirect to dashboard
+        window.location.href = "dashboard.html";
       } catch (error) {
-        document.getElementById("register-error").textContent = error.message;
+        document.getElementById("register-error").textContent = error.message || 'Registration failed';
       }
     });
   </script>
