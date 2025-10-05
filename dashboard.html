@@ -160,12 +160,9 @@ body {margin:0;font-family:'Poppins',sans-serif;background: linear-gradient(135d
     Object.keys(sections).forEach(k => sections[k].style.display = k === item.dataset.section ? 'block' : 'none');
   }));
 
-  // Replace prompt-based logout with Firebase sign out
-  async function logout() {
-    // disable logout buttons while signing out
+ async function logout() {
     const btns = document.querySelectorAll('.logout-btn');
     btns.forEach(b => b.disabled = true);
-
     try {
       await auth.signOut();
       window.location.href = 'login.html';
@@ -175,12 +172,9 @@ body {margin:0;font-family:'Poppins',sans-serif;background: linear-gradient(135d
     }
   }
 
-  // Ensure any .logout-btn uses the same handler (works even if you remove inline onclick)
+  // wire any logout buttons (removes need for inline onclick)
   document.querySelectorAll('.logout-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      logout();
-    });
+    btn.addEventListener('click', (e) => { e.preventDefault(); logout(); });
   });
 
   // Workouts Data
@@ -304,3 +298,4 @@ body {margin:0;font-family:'Poppins',sans-serif;background: linear-gradient(135d
 </script>
 </body>
 </html>
+
