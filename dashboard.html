@@ -249,7 +249,48 @@ body{
 
 <div id="nutrition" class="section">
   <h2>Nutrition</h2>
-  <!-- Keep non-AI nutrition UI (manual meal list / localStorage) here if you want -->
+
+  <!-- AI nutrition form -->
+  <div id="ai-nutrition" style="margin-bottom:12px;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:8px;">
+      <input id="ai-age" placeholder="Age" />
+      <select id="ai-sex">
+        <option value="">Sex</option>
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+        <option value="other">Other</option>
+      </select>
+      <input id="ai-weight" placeholder="Weight (kg)" />
+      <input id="ai-height" placeholder="Height (cm)" />
+      <select id="ai-activity">
+        <option value="">Activity</option>
+        <option value="sedentary">Sedentary</option>
+        <option value="light">Light</option>
+        <option value="moderate">Moderate</option>
+        <option value="active">Active</option>
+      </select>
+      <select id="ai-goal">
+        <option value="">Goal</option>
+        <option value="lose">Lose weight</option>
+        <option value="maintain">Maintain</option>
+        <option value="gain">Gain muscle</option>
+      </select>
+      <input id="ai-meals" placeholder="Meals per day (e.g. 3)" />
+    </div>
+
+    <textarea id="ai-preferences" placeholder="Dietary preferences / allergies / dislikes" style="width:100%;min-height:80px;margin-bottom:8px;"></textarea>
+
+    <div style="display:flex;gap:8px;">
+      <button id="generateDietBtn" class="start-btn">Generate AI Diet</button>
+      <button id="clearDietBtn" class="done-btn">Clear</button>
+      <div id="nutrition-loading" style="opacity:0;transition:opacity .2s ease;margin-left:8px;align-self:center;">Loading...</div>
+    </div>
+
+    <pre id="aiDietResult" style="white-space:pre-wrap;background:rgba(0,0,0,0.05);padding:12px;border-radius:8px;margin-top:10px;color:#111;display:none;"></pre>
+    <p id="aiDietError" class="error" style="display:none"></p>
+  </div>
+
+  <!-- Keep non-AI nutrition UI (manual meal list / localStorage) if present -->
   <!-- ...existing nutrition UI... -->
 </div>
 
@@ -504,6 +545,86 @@ body{
   if (window.loadNutrition) {
     // keep nutrition loader, but ensure it doesn't rely on AI
   }
+</script>
+
+<script>
+  // AI nutrition client: wire Generate + Clear buttons
+  (function(){
+    const genBtn = document.getElementById('generateDietBtn');
+    const clearBtn = document.getElementById('clearDietBtn');
+    const loadingEl = document.getElementById('nutrition-loading');
+    const resultEl = document.getElementById('aiDietResult');
+    const errEl = document.getElementById('aiDietError');
+
+    function showLoading(on){
+      if (!loadingEl) return;
+      loadingEl.style.opacity = on ? '1' : '0';
+    }
+    function showResult(text){
+      if (!resultEl) return;
+      resultEl.style.display = text ? 'block' : 'none';
+      resultEl.textContent = text || '';
+    }
+    function showError(msg){
+      if (!errEl) return;
+      errEl.style.display = msg ? 'block' : 'none';
+      errEl.textContent = msg || '';
+    }
+
+    genBtn?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      showError('');
+      showResult('');
+      showLoading(true);
+      genBtn.disabled = true;
+
+      const payload = {
+        age: document.getElementById('ai-age')?.value || '',
+        sex: document.getElementById('ai-sex')?.value || '',
+        weightKg: document.getElementById('ai-weight')?.value || '',
+        heightCm: document.getElementById('ai-height')?.value || '',
+        activity: document.getElementById('ai-activity')?.value || '',
+        goal: document.getElementById('ai-goal')?.value || '',
+        mealsPerDay: document.getElementById('ai-meals')?.value || '',
+        preferences: document.getElementById('ai-preferences')?.value || ''
+      };
+
+      try {
+        const res = await fetch('/api/diet-plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const text = await res.text();
+        let json;
+        try { json = text ? JSON.parse(text) : {}; } catch { json = null; }
+
+        if (!res.ok) {
+          const detail = (json && (json.error || json.detail)) || text || `Status ${res.status}`;
+          showError(`Server error: ${detail}`);
+        } else {
+          const plan = (json && json.plan) || text || '';
+          if (!plan) showError('Empty response from API');
+          else showResult(plan);
+        }
+      } catch (err) {
+        console.error(err);
+        showError('Network error. Ensure the serverless function /api/diet-plan is deployed and environment key set.');
+      } finally {
+        showLoading(false);
+        genBtn.disabled = false;
+      }
+    });
+
+    clearBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      ['ai-age','ai-sex','ai-weight','ai-height','ai-activity','ai-goal','ai-meals','ai-preferences']
+        .forEach(id => { const el = document.getElementById(id); if (!el) return; if (el.tagName === 'SELECT') el.selectedIndex = 0; else el.value = ''; });
+      showResult('');
+      showError('');
+    });
+  })();
 </script>
 </body>
 </html>
