@@ -125,6 +125,12 @@
             <i class="fab fa-google social-btn google" id="google-login" title="Sign in with Google"></i>
           </div>
         </div>
+
+        <!-- Generate test button to verify client calls and show helpful errors -->
+        <div style="text-align:center; margin-top:12px;">
+          <button type="button" id="generate-btn" style="width:auto;padding:8px 14px;border-radius:8px;">Generate (test)</button>
+          <div id="generate-result" style="margin-top:8px;font-size:0.95rem;min-height:1.2em;"></div>
+        </div>
       </form>
 
       <form id="register-form" class="hidden">
@@ -266,6 +272,49 @@
         document.getElementById("register-error").textContent = error.message || 'Registration failed';
       }
     });
+
+    // ---------- Generate (test) button handler ----------
+    const genBtn = document.getElementById('generate-btn');
+    const genResult = document.getElementById('generate-result');
+
+    async function showGenResult(text, isError = false) {
+      genResult.textContent = text;
+      genResult.style.color = isError ? '#d9534f' : '#222';
+    }
+
+    async function handleGenerateTest() {
+      if (!genBtn) return;
+      genBtn.disabled = true;
+      showGenResult('Generating…');
+
+      try {
+        // Try the real endpoint first
+        const resp = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: 'test' }),
+        });
+
+        if (resp.ok) {
+          const data = await resp.json().catch(() => null) || await resp.text().catch(() => null);
+          showGenResult('Response: ' + (typeof data === 'string' ? data : JSON.stringify(data)));
+        } else if (resp.status === 404) {
+          // Helpful message about NOT_FOUND and fallback mock result
+          showGenResult('Server returned 404 NOT_FOUND — endpoint not found. Showing a mock result below.', true);
+          // fallback mocked content so you can confirm the button works
+          setTimeout(() => showGenResult('Mocked AI result: Welcome to FitLife! Your personalized plan is ready.'), 700);
+        } else {
+          const text = await resp.text().catch(() => resp.statusText || 'Request failed');
+          showGenResult(`Server error (${resp.status}): ${text}`, true);
+        }
+      } catch (err) {
+        showGenResult('Network error: ' + (err?.message || String(err)), true);
+      } finally {
+        genBtn.disabled = false;
+      }
+    }
+
+    if (genBtn) genBtn.addEventListener('click', handleGenerateTest);
   </script>
 </body>
 </html>
