@@ -50,7 +50,15 @@
     justify-content:center;
     gap:12px;
     min-width:260px;
+    position:relative;
   }
+  .welcome-section::before{
+    content:'';
+    position:absolute;
+    inset:0;
+    background:rgba(26,42,108,0.7);
+  }
+  .welcome-section h1, .welcome-section p{position:relative;z-index:1;}
   .welcome-section h1{margin:0;font-size:1.6rem;line-height:1.1}
   .welcome-section p{margin:0;opacity:0.95}
 
@@ -62,16 +70,21 @@
 
   .form-section h2{margin:0 0 8px 0;text-align:center;color:var(--primary)}
   .tabs{display:flex;gap:12px;justify-content:center;margin:12px 0}
-  .tab{cursor:pointer;padding:8px 12px;font-weight:600;border-bottom:2px solid transparent}
+  .tab{cursor:pointer;padding:8px 12px;font-weight:600;border-bottom:2px solid transparent;transition:all .3s}
   .tab.active{color:var(--primary);border-color:var(--primary)}
+  .tab:hover{color:var(--accent)}
 
   form{max-width:380px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
-  input, select, button{width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;font-size:0.95rem}
-  button{background:linear-gradient(90deg,var(--primary),#b21f1f);color:#fff;border:none;cursor:pointer}
+  input, select, button{width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;font-size:0.95rem;font-family:inherit}
+  input:focus, select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(253,187,45,0.2)}
+  button{background:linear-gradient(90deg,var(--primary),#b21f1f);color:#fff;border:none;cursor:pointer;font-weight:600;transition:all .3s}
+  button:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.2)}
+  button:disabled{opacity:0.6;cursor:not-allowed;transform:none}
 
   .social-row{text-align:center;margin-top:6px}
-  .social-btn{display:inline-block;margin:8px;font-size:24px;cursor:pointer}
-  #authMessage{min-height:1.2em;color:#b21f1f;text-align:center;margin-bottom:6px}
+  .social-btn{display:inline-block;margin:8px;font-size:24px;cursor:pointer;transition:all .3s;color:#db4437}
+  .social-btn:hover{transform:scale(1.1)}
+  #authMessage{min-height:1.2em;color:#b21f1f;text-align:center;margin-bottom:6px;font-weight:500}
 
   /* Responsive */
   @media (max-width:900px){
@@ -82,15 +95,14 @@
   }
 
   @media (max-width:600px){
-    .welcome-section{display:none} /* hide large image on small screens for space */
+    .welcome-section{display:none}
     .form-section{padding:18px}
     .container{border-radius:10px}
     form{width:100%}
     .tab{padding:6px 8px;font-size:0.95rem}
   }
 
-  /* Small polish */
-  .error{color:#d9534f;font-size:0.9rem;min-height:1.1em}
+  .error{color:#d9534f;font-size:0.9rem;min-height:1.1em;margin-top:4px}
   .hidden{display:none}
   </style>
 </head>
@@ -111,7 +123,6 @@
         <span class="tab" id="register-tab">Register</span>
       </div>
 
-      <!-- inline auth message -->
       <div id="authMessage" aria-live="polite"></div>
 
       <form id="login-form">
@@ -120,11 +131,12 @@
         <button type="submit">Login</button>
         <p class="error" id="login-error"></p>
         <div class="social-row">
-          <div style="text-align:center; margin-top:10px;">or</div>
+          <div style="text-align:center; margin-top:10px;color:#999">or</div>
           <div style="text-align:center;">
             <i class="fab fa-google social-btn google" id="google-login" title="Sign in with Google"></i>
           </div>
         </div>
+      </form>
 
       <form id="register-form" class="hidden">
         <input type="text" id="register-name" placeholder="Full Name" required />
@@ -137,11 +149,10 @@
     </div>
   </div>
 
-  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <script>
-    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyCYOzxUWAPd4ifIKUOXY0TQQvWJStRaeYk",
       authDomain: "fitlife-8e768.firebaseapp.com",
@@ -153,51 +164,53 @@
     firebase.initializeApp(firebaseConfig);
 
     const auth = firebase.auth();
+    const db = firebase.firestore();
     const googleProvider = new firebase.auth.GoogleAuthProvider();
 
-    // Show inline messages
     function showAuthMessage(msg) {
       const el = document.getElementById('authMessage');
       if (el) el.textContent = msg || '';
     }
 
-    // Google sign-in / sign-up handler
+    // Check if user has completed onboarding
+    async function checkOnboarding(user) {
+      try {
+        const doc = await db.collection('users').doc(user.uid).get();
+        if (!doc.exists || !doc.data().onboardingComplete) {
+          window.location.href = 'onboarding.html';
+        } else {
+          window.location.href = 'dashboard.html';
+        }
+      } catch (err) {
+        console.error('Error checking onboarding:', err);
+        window.location.href = 'onboarding.html';
+      }
+    }
+
+    // Google sign-in
     async function handleGoogleSignIn() {
       showAuthMessage('');
       try {
         const result = await auth.signInWithPopup(googleProvider);
         const isNew = result?.additionalUserInfo?.isNewUser;
 
-        // If new Google user, treat this as sign-up: keep them signed in and redirect
         if (isNew) {
-          // Optionally you can prefill additional profile fields or force completion
-          // e.g. await result.user.updateProfile({ displayName: result.user.displayName });
-
-          // Redirect to dashboard (user created by Firebase automatically)
-          window.location.href = 'dashboard.html';
-          return;
+          // New user - redirect to onboarding
+          window.location.href = 'onboarding.html';
+        } else {
+          // Existing user - check if onboarding is complete
+          await checkOnboarding(result.user);
         }
-
-        // Existing Google-linked account -> sign in normally
-        window.location.href = 'dashboard.html';
       } catch (err) {
         console.error('Google sign-in error', err);
         showAuthMessage(err?.message || 'Google sign-in failed');
       }
     }
 
-    // Ensure no demo alert handlers are attached to social buttons
-    document.querySelectorAll('.social-btn').forEach(btn => {
-      // remove inline/demo handlers by replacing with a clean clone
-      const clean = btn.cloneNode(true);
-      btn.parentNode.replaceChild(clean, btn);
-    });
-
-    // Wire Google button only
     const googleBtn = document.getElementById('google-login');
     if (googleBtn) googleBtn.addEventListener('click', (e) => { e.preventDefault(); handleGoogleSignIn(); });
 
-    // Tabs toggle
+    // Tabs
     const loginTab = document.getElementById("login-tab");
     const registerTab = document.getElementById("register-tab");
     const loginForm = document.getElementById("login-form");
@@ -226,8 +239,8 @@
       const email = document.getElementById("login-email").value.trim();
       const password = document.getElementById("login-password").value;
       try {
-        await auth.signInWithEmailAndPassword(email, password);
-        window.location.href = "dashboard.html";
+        const result = await auth.signInWithEmailAndPassword(email, password);
+        await checkOnboarding(result.user);
       } catch (error) {
         document.getElementById("login-error").textContent = error.message || 'Login failed';
       }
@@ -257,58 +270,13 @@
 
       try {
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-        // set displayName so dashboard shows it
         await userCredential.user.updateProfile({ displayName: name });
-        // user is signed in automatically — redirect to dashboard
-        window.location.href = "dashboard.html";
+        // Redirect to onboarding
+        window.location.href = "onboarding.html";
       } catch (error) {
         document.getElementById("register-error").textContent = error.message || 'Registration failed';
       }
     });
-
-    // ---------- Generate (test) button handler ----------
-    const genBtn = document.getElementById('generate-btn');
-    const genResult = document.getElementById('generate-result');
-
-    async function showGenResult(text, isError = false) {
-      genResult.textContent = text;
-      genResult.style.color = isError ? '#d9534f' : '#222';
-    }
-
-    async function handleGenerateTest() {
-      if (!genBtn) return;
-      genBtn.disabled = true;
-      showGenResult('Generating…');
-
-      try {
-        // Try the real endpoint first
-        const resp = await fetch('/api/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: 'test' }),
-        });
-
-        if (resp.ok) {
-          const data = await resp.json().catch(() => null) || await resp.text().catch(() => null);
-          showGenResult('Response: ' + (typeof data === 'string' ? data : JSON.stringify(data)));
-        } else if (resp.status === 404) {
-          // Helpful message about NOT_FOUND and fallback mock result
-          showGenResult('Server returned 404 NOT_FOUND — endpoint not found. Showing a mock result below.', true);
-          // fallback mocked content so you can confirm the button works
-          setTimeout(() => showGenResult('Mocked AI result: Welcome to FitLife! Your personalized plan is ready.'), 700);
-        } else {
-          const text = await resp.text().catch(() => resp.statusText || 'Request failed');
-          showGenResult(`Server error (${resp.status}): ${text}`, true);
-        }
-      } catch (err) {
-        showGenResult('Network error: ' + (err?.message || String(err)), true);
-      } finally {
-        genBtn.disabled = false;
-      }
-    }
-
-    if (genBtn) genBtn.addEventListener('click', handleGenerateTest);
   </script>
 </body>
 </html>
-
