@@ -25,19 +25,49 @@
     padding:20px;
     color:#222;
     overflow:hidden;
+    background-size:300% 300%;
+    animation:gradientMove 10s ease infinite;
   }
 
-  /* Smooth background movement */
   @keyframes gradientMove {
     0% {background-position:0% 50%;}
     50% {background-position:100% 50%;}
     100% {background-position:0% 50%;}
   }
-  body {
-    background-size:300% 300%;
-    animation:gradientMove 10s ease infinite;
+
+  /* --- SPLASH SCREEN --- */
+  .splash {
+    position:fixed;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:linear-gradient(135deg,var(--primary),var(--secondary),var(--accent));
+    color:#fff;
+    z-index:999;
+    flex-direction:column;
+    animation:fadeOut 1s ease forwards;
+    animation-delay:2.3s;
   }
 
+  .splash h1 {
+    font-size:3rem;
+    letter-spacing:2px;
+    opacity:0;
+    animation:fadeZoom 2s ease forwards;
+  }
+
+  @keyframes fadeZoom {
+    0% {opacity:0; transform:scale(0.8);}
+    50% {opacity:1; transform:scale(1.05);}
+    100% {opacity:1; transform:scale(1);}
+  }
+
+  @keyframes fadeOut {
+    to {opacity:0; visibility:hidden;}
+  }
+
+  /* --- MAIN CONTAINER --- */
   .container {
     width:100%;
     max-width:880px;
@@ -47,12 +77,13 @@
     display:flex;
     box-shadow:0 20px 40px rgba(0,0,0,0.2);
     position:relative;
-    transform:translateY(20px);
     opacity:0;
-    animation:fadeUp .9s ease forwards;
+    transform:translateY(40px);
+    animation:slideUp 1s ease forwards;
+    animation-delay:2.5s;
   }
 
-  @keyframes fadeUp {
+  @keyframes slideUp {
     to {opacity:1; transform:translateY(0);}
   }
 
@@ -129,15 +160,10 @@
     display:flex;
     flex-direction:column;
     gap:16px;
-    opacity:0;
-    transform:translateY(20px);
-    animation:fadeUp .8s ease forwards;
+    opacity:1;
   }
 
-  .form-group {
-    position:relative;
-  }
-
+  .form-group {position:relative;}
   input {
     width:100%;
     padding:12px 10px;
@@ -152,7 +178,6 @@
     box-shadow:0 0 10px rgba(253,187,45,0.3);
   }
 
-  /* Floating label */
   label {
     position:absolute;
     left:12px;
@@ -196,10 +221,7 @@
   button:hover::after {transform:translate(-50%,-50%) scale(1);}
   button:hover {box-shadow:0 5px 15px rgba(0,0,0,0.3);}
 
-  .social-row {
-    text-align:center;
-    margin-top:10px;
-  }
+  .social-row {text-align:center; margin-top:10px;}
   .social-btn {
     font-size:26px;
     cursor:pointer;
@@ -207,26 +229,23 @@
     margin:10px;
     transition:transform .3s ease;
   }
-  .social-btn:hover {
-    transform:scale(1.2) rotate(5deg);
-  }
-
+  .social-btn:hover {transform:scale(1.2) rotate(5deg);}
   #authMessage {min-height:1.2em;color:#b21f1f;text-align:center;margin-bottom:6px;font-weight:500;}
   .error{color:#d9534f;font-size:0.9rem;min-height:1.1em;text-align:center;}
+  .hidden{display:none;}
 
-  .hidden {display:none;}
-
-  @media(max-width:850px){
-    .container {flex-direction:column;}
-    .welcome-section {min-height:160px;}
-  }
-  @media(max-width:600px){
-    .welcome-section {display:none;}
-    .container {border-radius:10px;}
-  }
+  @media(max-width:850px){.container{flex-direction:column;}.welcome-section{min-height:160px;}}
+  @media(max-width:600px){.welcome-section{display:none;}.container{border-radius:10px;}}
   </style>
 </head>
 <body>
+
+  <!-- Splash Screen -->
+  <div class="splash">
+    <h1>Fit<span style="color:var(--accent)">Life</span></h1>
+  </div>
+
+  <!-- Main Container -->
   <div class="container">
     <div class="welcome-section">
       <h1>Transform Your Life With FitLife</h1>
@@ -297,45 +316,33 @@
       appId: "1:721770808033:web:adb64336eb674c3679eda0"
     };
     firebase.initializeApp(firebaseConfig);
-
     const auth = firebase.auth();
     const db = firebase.firestore();
     const googleProvider = new firebase.auth.GoogleAuthProvider();
 
-    function showAuthMessage(msg) {
-      document.getElementById('authMessage').textContent = msg || '';
+    function showAuthMessage(msg){document.getElementById('authMessage').textContent=msg||'';}
+
+    async function checkOnboarding(user){
+      try{
+        const doc=await db.collection('users').doc(user.uid).get();
+        if(!doc.exists||!doc.data().onboardingComplete){window.location.href='onboarding.html';}
+        else{window.location.href='dashboard.html';}
+      }catch(err){window.location.href='onboarding.html';}
     }
 
-    async function checkOnboarding(user) {
-      try {
-        const doc = await db.collection('users').doc(user.uid).get();
-        if (!doc.exists || !doc.data().onboardingComplete) {
-          window.location.href = 'onboarding.html';
-        } else {
-          window.location.href = 'dashboard.html';
-        }
-      } catch (err) {
-        console.error(err);
-        window.location.href = 'onboarding.html';
-      }
-    }
-
-    async function handleGoogleSignIn() {
-      try {
-        const result = await auth.signInWithPopup(googleProvider);
-        const isNew = result?.additionalUserInfo?.isNewUser;
-        if (isNew) window.location.href = 'onboarding.html';
+    async function handleGoogleSignIn(){
+      try{
+        const result=await auth.signInWithPopup(googleProvider);
+        const isNew=result?.additionalUserInfo?.isNewUser;
+        if(isNew)window.location.href='onboarding.html';
         else await checkOnboarding(result.user);
-      } catch (err) {
-        showAuthMessage(err.message);
-      }
+      }catch(err){showAuthMessage(err.message);}
     }
 
-    document.getElementById("google-login").addEventListener("click", e=>{
-      e.preventDefault(); handleGoogleSignIn();
+    document.getElementById("google-login").addEventListener("click",e=>{
+      e.preventDefault();handleGoogleSignIn();
     });
 
-    // Tabs
     const loginTab=document.getElementById("login-tab");
     const registerTab=document.getElementById("register-tab");
     const loginForm=document.getElementById("login-form");
@@ -361,10 +368,10 @@
       document.getElementById("login-error").textContent='';
       const email=document.getElementById("login-email").value.trim();
       const password=document.getElementById("login-password").value;
-      try {
+      try{
         const result=await auth.signInWithEmailAndPassword(email,password);
         await checkOnboarding(result.user);
-      } catch(err){document.getElementById("login-error").textContent=err.message;}
+      }catch(err){document.getElementById("login-error").textContent=err.message;}
     };
 
     registerForm.onsubmit=async e=>{
@@ -374,14 +381,14 @@
       const email=document.getElementById("register-email").value.trim();
       const password=document.getElementById("register-password").value;
       const confirm=document.getElementById("register-confirm").value;
-      if(!name){return document.getElementById("register-error").textContent="Please enter your name";}
-      if(password!==confirm){return document.getElementById("register-error").textContent="Passwords do not match!";}
-      if(password.length<8){return document.getElementById("register-error").textContent="Password must be at least 8 characters!";}
-      try {
+      if(!name)return document.getElementById("register-error").textContent="Please enter your name";
+      if(password!==confirm)return document.getElementById("register-error").textContent="Passwords do not match!";
+      if(password.length<8)return document.getElementById("register-error").textContent="Password must be at least 8 characters!";
+      try{
         const userCredential=await auth.createUserWithEmailAndPassword(email,password);
         await userCredential.user.updateProfile({displayName:name});
         window.location.href="onboarding.html";
-      } catch(err){document.getElementById("register-error").textContent=err.message;}
+      }catch(err){document.getElementById("register-error").textContent=err.message;}
     };
   </script>
 </body>
