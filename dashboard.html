@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FitLife Dashboard</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 :root{
   --primary:#1a2a6c;
@@ -31,6 +31,7 @@ body{
   justify-content:center;
   padding:20px;
   line-height:1.6;
+  overflow-x:hidden;
 }
 .dashboard-container{
   display:flex;
@@ -38,6 +39,7 @@ body{
   max-width:var(--max-content-width);
   gap:var(--gap);
   align-items:flex-start;
+  position:relative;
 }
 
 /* Sidebar */
@@ -47,16 +49,19 @@ body{
   padding:24px 16px;
   height:calc(100vh - 40px);
   box-shadow:var(--shadow-lg);
-  border-radius:0 var(--radius) var(--radius) 0;
+  border-radius:var(--radius);
   display:flex;
   flex-direction:column;
-  position:sticky;
+  position:fixed;
+  left:-280px;
   top:20px;
   color:#fff;
   z-index:1002;
+  transition:left .3s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.sidebar-header{margin-bottom:24px;}
-.sidebar-header h3{text-align:center;font-size:1.4rem;letter-spacing:1.2px;font-weight:700;}
+.sidebar.open{left:20px;}
+.sidebar-header{margin-bottom:24px;text-align:center;}
+.sidebar-header h3{font-size:1.4rem;letter-spacing:1.2px;font-weight:700;}
 .nav-menu{list-style:none;flex:1;display:flex;flex-direction:column;gap:8px;}
 .nav-item{
   padding:14px 16px;
@@ -91,36 +96,40 @@ body{
   position:fixed;
   top:20px;
   left:20px;
-  display:none;
+  display:inline-flex;
   align-items:center;
   justify-content:center;
-  width:48px;
-  height:48px;
-  border-radius:10px;
-  background:rgba(26,42,108,0.95);
-  backdrop-filter:blur(10px);
+  width:52px;
+  height:52px;
+  border-radius:12px;
+  background:linear-gradient(135deg,var(--primary),var(--secondary));
   color:#fff;
   border:none;
   cursor:pointer;
   z-index:1100;
-  box-shadow:var(--shadow-md);
-  transition:all .2s;
+  box-shadow:var(--shadow-lg);
+  transition:all .3s;
+  font-size:1.3rem;
 }
-.sidebar-toggle:hover{transform:scale(1.05);box-shadow:var(--shadow-lg);}
+.sidebar-toggle:hover{transform:scale(1.1);box-shadow:0 8px 28px rgba(0,0,0,0.35);}
+.sidebar-toggle.active{left:calc(var(--sidebar-width) + 30px);background:var(--secondary);}
+
 .sidebar-close{
-  display:none;
+  display:inline-flex;
   align-self:flex-end;
   font-size:1.5rem;
-  background:rgba(255,255,255,0.1);
+  background:rgba(255,255,255,0.15);
   border:none;
   color:#fff;
   cursor:pointer;
-  padding:8px;
+  padding:8px 12px;
   border-radius:8px;
   margin-bottom:12px;
-  transition:background .2s;
+  transition:all .2s;
+  align-items:center;
+  justify-content:center;
 }
-.sidebar-close:hover{background:rgba(255,255,255,0.2);}
+.sidebar-close:hover{background:rgba(255,255,255,0.25);transform:scale(1.05);}
 
 /* Main Content */
 .main-content{
@@ -128,7 +137,13 @@ body{
   padding:0;
   overflow-y:auto;
   min-width:0;
+  max-width:100%;
+  container-type: inline-size;
+  width:100%;
+  margin-left:0;
+  transition:margin-left .3s;
 }
+
 .header{
   display:flex;
   justify-content:space-between;
@@ -139,6 +154,7 @@ body{
   border-radius:var(--radius);
   box-shadow:var(--shadow-md);
   margin-bottom:24px;
+  margin-left:70px;
 }
 .header-logo-section{display:flex;align-items:center;gap:16px;}
 .user-profile{
@@ -240,6 +256,8 @@ body{
   box-shadow:var(--shadow-md);
   color:#222;
   animation:slideIn .4s ease-out;
+  max-width:100%;
+  overflow-x:hidden;
 }
 @keyframes slideIn{
   from{opacity:0;transform:translateY(20px);}
@@ -254,247 +272,607 @@ body{
   border-bottom:3px solid var(--accent);
 }
 
-/* Workouts */
-.workout-grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
-  gap:20px;
+/* **UPDATED** Progress Section Styles */
+.weight-input-section{
+  background:linear-gradient(135deg,rgba(67,206,162,0.08),rgba(24,90,157,0.08));
+  padding:28px;
+  border-radius:var(--radius);
+  margin-bottom:24px;
+  border-left:5px solid var(--accent);
 }
-.workout-card{
+.weight-input-section h3{
+  color:var(--primary);
+  margin-bottom:20px;
+  font-size:1.3rem;
+}
+.weight-form{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:16px;
+  align-items:end;
+}
+.weight-form input{
+  padding:14px;
+  border:2px solid rgba(26,42,108,0.2);
+  border-radius:10px;
+  font-size:1rem;
+  transition:all .3s;
+  background:#fff;
+}
+.weight-form input:focus{
+  outline:none;
+  border-color:var(--accent);
+  box-shadow:0 0 0 4px rgba(253,187,45,0.2);
+}
+.add-weight-btn{
+  padding:14px 28px;
+  background:linear-gradient(135deg,#43cea2,#185a9d);
+  color:#fff;
+  border:none;
+  border-radius:12px;
+  font-weight:700;
+  cursor:pointer;
+  transition:all .3s;
+  font-size:1.05rem;
+  box-shadow:var(--shadow-md);
+}
+.add-weight-btn:hover{
+  transform:translateY(-3px);
+  box-shadow:var(--shadow-lg);
+}
+
+.chart-container{
+  background:#fff;
+  padding:24px;
+  border-radius:12px;
+  box-shadow:var(--shadow-md);
+  margin-top:24px;
+  border-left:5px solid #43cea2;
+}
+.chart-container h3{
+  color:var(--primary);
+  margin-bottom:20px;
+  font-size:1.3rem;
+}
+.chart-wrapper{
+  position:relative;
+  height:400px;
+  width:100%;
+}
+.progress-summary{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:16px;
+  margin-top:24px;
+}
+.summary-card{
+  background:linear-gradient(135deg,rgba(67,206,162,0.1),rgba(24,90,157,0.1));
+  padding:20px;
+  border-radius:12px;
+  text-align:center;
+  border-left:4px solid var(--accent);
+}
+.summary-card h5{
+  color:var(--primary);
+  font-size:0.9rem;
+  margin-bottom:8px;
+  text-transform:uppercase;
+}
+.summary-card p{
+  font-size:1.8rem;
+  font-weight:700;
+  color:var(--primary);
+}
+.goal-display{
+  text-align:center;
+  padding:20px;
+  background:linear-gradient(135deg,rgba(26,42,108,0.1),rgba(253,187,45,0.1));
+  border-radius:var(--radius);
+  margin-bottom:24px;
+}
+.goal-display p{
+  font-size:1.1rem;
+  font-weight:600;
+  color:var(--primary);
+  margin:0;
+}
+.goal-display i{
+  margin-right:8px;
+  color:var(--accent);
+}
+
+/* Workout Section styles remain the same... */
+.workout-header-container{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:28px;
+  gap:16px;
+  max-width:100%;
+  min-width:0;
+  padding:20px;
+  background:linear-gradient(135deg,rgba(26,42,108,0.08),rgba(253,187,45,0.08));
+  border-radius:var(--radius);
+  border-left:5px solid var(--accent);
+  flex-wrap:wrap;
+}
+.workout-header-container h2{
+  margin:0;
+  padding:0;
+  border:none;
+  flex:1 1 auto;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.workout-tabs{
+  display:flex;
+  gap:12px;
+  flex:0 1 auto;
+  flex-wrap:wrap;
+  min-width:0;
+}
+.workout-tab-btn{
+  padding:14px 24px;
+  border:none;
+  border-radius:12px;
+  background:linear-gradient(135deg,var(--accent),var(--primary));
+  color:#fff;
+  font-weight:700;
+  cursor:pointer;
+  transition:all .3s;
+  box-shadow:var(--shadow-md);
+  white-space:nowrap;
+  flex:0 0 auto;
+  font-size:1rem;
+}
+.workout-tab-btn:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);}
+.workout-tab-btn.active{
+  background:linear-gradient(135deg,var(--primary),var(--secondary));
+  box-shadow:var(--shadow-lg);
+  transform:scale(1.05);
+}
+
+.workout-content{max-width:100%;overflow-x:hidden;}
+
+.today-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:linear-gradient(135deg,var(--primary),var(--secondary));
+  color:#fff;
+  padding:24px;
+  border-radius:var(--radius);
+  margin-bottom:28px;
+  box-shadow:var(--shadow-lg);
+  position:relative;
+  overflow:hidden;
+  flex-wrap:wrap;
+  gap:16px;
+}
+.today-header h3{font-size:1.6rem;margin:0;position:relative;z-index:1;}
+.today-header .date-info{font-size:1rem;opacity:0.95;margin-top:6px;position:relative;z-index:1;}
+.today-header-right{text-align:right;position:relative;z-index:1;}
+.today-header-right p{font-size:1rem;opacity:0.95;}
+.empty-workout{
+  text-align:center;
+  padding:80px 30px;
+  background:linear-gradient(135deg,rgba(253,187,45,0.08),rgba(67,206,162,0.08));
+  border-radius:var(--radius);
+  border:3px dashed rgba(26,42,108,0.2);
+  position:relative;
+  overflow:hidden;
+}
+.empty-workout i{font-size:5rem;color:var(--accent);margin-bottom:24px;position:relative;z-index:1;}
+.empty-workout h3{color:var(--primary);margin-bottom:16px;font-size:1.5rem;position:relative;z-index:1;}
+.empty-workout p{color:#666;margin-bottom:28px;font-size:1.05rem;position:relative;z-index:1;}
+.empty-workout .btn-create-schedule{
+  padding:16px 36px;
+  background:linear-gradient(135deg,var(--accent),var(--primary));
+  color:#fff;
+  border:none;
+  border-radius:12px;
+  font-weight:700;
+  cursor:pointer;
+  transition:all .3s;
+  font-size:1.1rem;
+  box-shadow:var(--shadow-lg);
+  position:relative;
+  z-index:1;
+}
+.empty-workout .btn-create-schedule:hover{
+  transform:translateY(-4px) scale(1.05);
+  box-shadow:0 12px 40px rgba(0,0,0,0.3);
+}
+
+.today-exercises{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(min(280px, 100%),1fr));
+  gap:24px;
+  width:100%;
+  max-width:100%;
+}
+.today-exercise-card{
   background:linear-gradient(135deg,#ff9a9e,#fad0c4);
-  padding:18px;
+  padding:24px;
   border-radius:var(--radius);
   box-shadow:var(--shadow-md);
   color:#fff;
-  text-align:center;
-  position:relative;
   transition:all .3s;
+  position:relative;
   overflow:hidden;
+  min-width:0;
 }
-.workout-card:hover{transform:translateY(-6px);box-shadow:var(--shadow-lg);}
-.workout-card.completed{opacity:0.7;filter:grayscale(0.3);}
-.workout-badge{
-  position:absolute;
-  top:12px;
-  left:12px;
-  color:#fff;
-  font-size:0.75rem;
-  border-radius:8px;
-  padding:5px 12px;
-  font-weight:700;
-  text-transform:uppercase;
-  letter-spacing:0.5px;
-  box-shadow:var(--shadow-sm);
+.today-exercise-card:hover{
+  transform:translateY(-8px);
+  box-shadow:0 16px 40px rgba(0,0,0,0.25);
 }
-.workout-badge.beginner{background:linear-gradient(135deg,#43cea2,#185a9d);}
-.workout-badge.intermediate{background:linear-gradient(135deg,#fdbb2d,#f7971e);}
-.workout-badge.advanced{background:linear-gradient(135deg,#ff416c,#ff4b2b);}
-.workout-card .completed-check{
-  position:absolute;
-  top:12px;
-  right:12px;
-  font-size:1.5rem;
-  color:#43cea2;
-  filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-}
-.workout-card h3{font-size:1.1rem;margin:12px 0 8px;font-weight:700;}
-.workout-gif{
-  width:100%;
-  height:130px;
-  object-fit:cover;
-  border-radius:10px;
-  margin-bottom:12px;
-  box-shadow:var(--shadow-sm);
-}
-.timer{
-  font-weight:700;
-  font-size:1.1rem;
-  margin:10px 0;
-  color:#fff;
-  text-shadow:0 2px 4px rgba(0,0,0,0.2);
-}
-.btn-container{display:flex;gap:8px;justify-content:center;margin-top:12px;}
-.start-btn,.done-btn{
-  padding:10px 18px;
-  border:none;
-  border-radius:8px;
-  cursor:pointer;
-  font-weight:700;
-  font-size:0.9rem;
-  transition:all .2s;
-  flex:1;
-}
-.start-btn{
-  background:linear-gradient(135deg,#43cea2,#185a9d);
-  color:#fff;
-  box-shadow:var(--shadow-sm);
-}
-.start-btn:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
-.start-btn:disabled{opacity:0.5;cursor:not-allowed;}
-.done-btn{
-  background:linear-gradient(135deg,#ff416c,#ff4b2b);
-  color:#fff;
-  box-shadow:var(--shadow-sm);
-}
-.done-btn:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
-.done-btn:disabled{opacity:0.5;cursor:not-allowed;}
-
-/* Nutrition */
-.nutrition-form{
-  background:rgba(26,42,108,0.05);
-  padding:20px;
-  border-radius:var(--radius);
+.today-exercise-card h4{
+  font-size:1.3rem;
   margin-bottom:20px;
+  font-weight:700;
+  position:relative;
+  z-index:1;
 }
-.form-grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
-  gap:12px;
-  margin-bottom:14px;
+.exercise-details{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  position:relative;
+  z-index:1;
 }
-.form-grid input,.form-grid select,.form-grid textarea{
-  padding:12px 16px;
-  border:2px solid rgba(26,42,108,0.15);
-  border-radius:8px;
-  font-size:0.95rem;
-  font-family:inherit;
-  transition:all .2s;
-  background:#fff;
-}
-.form-grid input:focus,.form-grid select:focus,.form-grid textarea:focus{
-  outline:none;
-  border-color:var(--accent);
-  box-shadow:0 0 0 3px rgba(253,187,45,0.15);
-}
-.form-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
-#nutrition-loading{
-  opacity:0;
-  transition:opacity .3s;
-  color:var(--primary);
-  font-weight:600;
-}
-#aiDietResult{
-  white-space:pre-wrap;
-  background:rgba(67,206,162,0.08);
-  padding:20px;
-  border-radius:var(--radius);
-  margin-top:16px;
-  color:#222;
-  border-left:4px solid #43cea2;
-  line-height:1.7;
-}
-#aiDietError{
-  background:rgba(255,65,108,0.1);
-  color:#c62828;
-  padding:16px;
-  border-radius:var(--radius);
-  border-left:4px solid #ff416c;
-  margin-top:16px;
-  font-weight:600;
-}
-
-/* Progress */
-.progress-chart{
-  width:100%;
-  height:200px;
-  background:linear-gradient(135deg,rgba(67,206,162,0.1),rgba(24,90,157,0.1));
-  border-radius:var(--radius);
-  margin-bottom:20px;
+.exercise-detail-item{
   display:flex;
   align-items:center;
-  justify-content:center;
+  gap:12px;
+  background:rgba(255,255,255,0.25);
+  padding:12px;
+  border-radius:10px;
+  min-width:0;
+  backdrop-filter:blur(5px);
+}
+.exercise-detail-item i{font-size:1.2rem;flex-shrink:0;}
+.exercise-detail-item span{min-width:70px;font-weight:700;flex-shrink:0;font-size:0.95rem;}
+.exercise-detail-item input{
+  flex:1;
+  min-width:0;
+  padding:10px 14px;
+  border:none;
+  border-radius:8px;
+  background:#fff;
   color:var(--primary);
   font-weight:700;
-  font-size:1.2rem;
-  border:2px dashed rgba(26,42,108,0.2);
+  font-size:1rem;
 }
-#progressContent p{
-  background:rgba(253,187,45,0.08);
-  padding:16px 20px;
+.mark-complete-btn{
+  width:100%;
+  padding:14px;
+  background:linear-gradient(135deg,#43cea2,#185a9d);
+  color:#fff;
+  border:none;
+  border-radius:10px;
+  font-weight:700;
+  cursor:pointer;
+  margin-top:14px;
+  transition:all .3s;
+  font-size:1.05rem;
+  position:relative;
+  z-index:1;
+  box-shadow:var(--shadow-sm);
+}
+.mark-complete-btn:hover{
+  transform:translateY(-3px);
+  box-shadow:0 8px 20px rgba(0,0,0,0.3);
+}
+.mark-complete-btn.completed{
+  background:linear-gradient(135deg,#43cea2,#43cea2);
+  opacity:0.75;
+  cursor:default;
+}
+
+.custom-schedule-container{
+  background:linear-gradient(135deg,rgba(67,206,162,0.08),rgba(24,90,157,0.08));
+  padding:28px;
+  border-radius:var(--radius);
+  margin-bottom:28px;
+  max-width:100%;
+  overflow:hidden;
+  border:2px solid rgba(26,42,108,0.1);
+}
+.custom-schedule-container h3{
+  color:var(--primary);
+  margin-bottom:24px;
+  font-size:1.4rem;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.day-selector{
+  display:flex;
+  gap:12px;
+  margin-bottom:28px;
+  overflow-x:auto;
+  padding-bottom:12px;
+  min-width:0;
+}
+.day-btn{
+  min-width:110px;
+  padding:14px 18px;
+  border:3px solid var(--primary);
+  border-radius:12px;
+  background:#fff;
+  color:var(--primary);
+  font-weight:700;
+  cursor:pointer;
+  transition:all .3s;
+  text-align:center;
+  flex-shrink:0;
+  font-size:0.95rem;
+  box-shadow:var(--shadow-sm);
+}
+.day-btn:hover{
+  background:rgba(26,42,108,0.08);
+  transform:translateY(-3px);
+  box-shadow:var(--shadow-md);
+}
+.day-btn.active{
+  background:var(--primary);
+  color:#fff;
+  border-color:var(--primary);
+  transform:scale(1.08);
+  box-shadow:var(--shadow-lg);
+}
+.exercise-picker{
+  background:#fff;
+  padding:24px;
+  border-radius:12px;
+  margin-bottom:20px;
+  box-shadow:var(--shadow-md);
+  max-width:100%;
+  overflow:hidden;
+  border-left:5px solid var(--accent);
+}
+.exercise-picker h4{
+  color:var(--primary);
+  margin-bottom:16px;
+  font-size:1.2rem;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.exercise-search{
+  width:100%;
+  max-width:100%;
+  padding:14px 16px;
+  border:3px solid rgba(26,42,108,0.15);
+  border-radius:10px;
+  font-size:1rem;
+  margin-bottom:16px;
+  transition:all .3s;
+}
+.exercise-search:focus{
+  outline:none;
+  border-color:var(--accent);
+  box-shadow:0 0 0 4px rgba(253,187,45,0.2);
+}
+.exercise-list{
+  max-height:250px;
+  overflow-y:auto;
+  overflow-x:hidden;
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(min(190px, 100%),1fr));
+  gap:12px;
+  max-width:100%;
+  padding:4px;
+}
+.exercise-item{
+  padding:14px;
+  border:2px solid rgba(26,42,108,0.1);
+  border-radius:10px;
+  cursor:pointer;
+  transition:all .3s;
+  background:#fff;
+  font-size:0.95rem;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  font-weight:600;
+  text-align:center;
+  box-shadow:var(--shadow-sm);
+}
+.exercise-item:hover{
+  border-color:var(--accent);
+  background:linear-gradient(135deg,rgba(253,187,45,0.15),rgba(67,206,162,0.15));
+  transform:translateY(-4px);
+  box-shadow:var(--shadow-md);
+}
+.selected-exercises{
+  background:#fff;
+  padding:24px;
+  border-radius:12px;
+  min-height:180px;
+  box-shadow:var(--shadow-md);
+  max-width:100%;
+  overflow:hidden;
+  border-left:5px solid #43cea2;
+}
+.selected-exercises h4{
+  color:var(--primary);
+  margin-bottom:16px;
+  font-size:1.2rem;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.selected-exercise-card{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:16px;
+  background:linear-gradient(135deg,rgba(67,206,162,0.12),rgba(24,90,157,0.12));
   border-radius:10px;
   margin-bottom:12px;
-  color:#222;
-  font-weight:500;
-  border-left:4px solid var(--accent);
+  border-left:5px solid var(--accent);
+  min-width:0;
+  gap:12px;
+  transition:all .3s;
+  box-shadow:var(--shadow-sm);
+}
+.selected-exercise-card:hover{
+  transform:translateX(6px);
+  box-shadow:var(--shadow-md);
+}
+.selected-exercise-card .exercise-name{
+  font-weight:700;
+  color:var(--primary);
+  flex:1;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  font-size:1.05rem;
+}
+.remove-exercise-btn{
+  background:var(--secondary);
+  color:#fff;
+  border:none;
+  padding:8px 16px;
+  border-radius:8px;
+  cursor:pointer;
+  font-size:0.9rem;
+  transition:all .3s;
+  flex-shrink:0;
+  font-weight:700;
+  box-shadow:var(--shadow-sm);
+}
+.remove-exercise-btn:hover{
+  background:#d32f2f;
+  transform:scale(1.1);
+  box-shadow:var(--shadow-md);
+}
+.save-schedule-btn{
+  width:100%;
+  padding:18px;
+  background:linear-gradient(135deg,#43cea2,#185a9d);
+  color:#fff;
+  border:none;
+  border-radius:12px;
+  font-weight:700;
+  font-size:1.15rem;
+  cursor:pointer;
+  transition:all .3s;
+  margin-top:20px;
+  box-shadow:var(--shadow-lg);
+}
+.save-schedule-btn:hover{
+  transform:translateY(-4px);
+  box-shadow:0 12px 36px rgba(0,0,0,0.3);
 }
 
 /* Overlay */
 #overlay{
   position:fixed;
   inset:0;
-  background:rgba(0,0,0,0.55);
+  background:rgba(0,0,0,0.6);
   opacity:0;
   visibility:hidden;
   transition:opacity .3s,visibility .3s;
   z-index:1001;
-  backdrop-filter:blur(2px);
+  backdrop-filter:blur(3px);
 }
 #overlay.show{opacity:1;visibility:visible;}
 
-/* Responsive */
-@media (max-width:1100px){
+/* Responsive Design */
+@media (max-width:1200px){
   .stats-grid{grid-template-columns:repeat(2,1fr);}
-  .sidebar{height:auto;position:relative;top:0;border-radius:var(--radius);}
 }
 
-@media (max-width:800px){
+@media (max-width:900px){
   body{padding:12px;}
-  .dashboard-container{flex-direction:column;gap:16px;}
-  .sidebar{
-    position:fixed;
-    left:0;top:0;bottom:0;
-    width:var(--sidebar-width);
-    transform:translateX(-110%);
-    transition:transform .3s cubic-bezier(0.4, 0, 0.2, 1);
-    height:100%;
-    border-radius:0 var(--radius) var(--radius) 0;
-    box-shadow:var(--shadow-lg);
-  }
-  .sidebar.open{transform:translateX(0);}
-  .sidebar-toggle{display:inline-flex;}
-  .sidebar-close{display:inline-block;}
-  .main-content{padding:0;}
-  .header{flex-direction:column;align-items:flex-start;gap:12px;padding:14px;}
-  .header-logo-section{width:100%;}
-  .user-profile{width:100%;justify-content:space-between;}
+  .header{margin-left:70px;padding:14px 16px;flex-wrap:wrap;}
+  .header-logo-section img{height:40px;}
+  .user-profile{width:100%;}
   .stats-grid{grid-template-columns:1fr;gap:16px;}
   .section{padding:20px;}
-  .workout-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));}
-  .workout-gif{height:100px;}
+  .today-exercises{grid-template-columns:repeat(auto-fill,minmax(min(250px, 100%),1fr));}
+  .workout-header-container{padding:16px;flex-direction:column;align-items:flex-start;}
+  .workout-tabs{width:100%;}
+  .exercise-list{grid-template-columns:repeat(auto-fill,minmax(min(150px, 100%),1fr));}
+  .weight-form{grid-template-columns:1fr;}
+  .progress-summary{grid-template-columns:1fr;}
 }
 
-@media (max-width:480px){
-  .stats-grid{gap:14px;}
-  .workout-grid{grid-template-columns:1fr;gap:16px;}
-  .nav-item i{font-size:1rem;}
-  .nav-item{font-size:0.9rem;padding:12px 14px;}
+@media (max-width:600px){
+  body{padding:8px;}
+  .sidebar{
+    left:-100%;
+    width:85%;
+    max-width:280px;
+    top:8px;
+    height:calc(100vh - 16px);
+  }
+  .sidebar.open{left:8px;}
+  .sidebar-toggle{
+    width:48px;
+    height:48px;
+    top:12px;
+    left:12px;
+    font-size:1.2rem;
+  }
+  .sidebar-toggle.active{left:calc(85% - 36px);}
+  .header{
+    margin-left:62px;
+    padding:12px;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:12px;
+  }
+  .user-info h4{font-size:0.95rem;}
+  .user-info p{font-size:0.75rem;}
   .section h2{font-size:1.3rem;}
-  .form-grid{grid-template-columns:1fr;}
-}
-
-@media (min-width:1400px){
-  .stat-card{padding:32px;}
-  .workout-gif{height:150px;}
+  .workout-header-container h2{font-size:1.2rem;}
+  .workout-tabs{flex-direction:column;width:100%;}
+  .workout-tab-btn{width:100%;justify-content:center;}
+  .day-selector{gap:8px;}
+  .day-btn{min-width:90px;font-size:0.85rem;padding:12px 14px;}
+  .today-header{flex-direction:column;align-items:flex-start;padding:18px;}
+  .today-header h3{font-size:1.3rem;}
+  .today-header-right{text-align:left;}
+  .empty-workout{padding:50px 20px;}
+  .empty-workout i{font-size:4rem;}
+  .empty-workout h3{font-size:1.3rem;}
+  .today-exercises{grid-template-columns:1fr;}
+  .exercise-list{grid-template-columns:1fr;}
+  .stats-grid{gap:14px;}
+  .chart-wrapper{height:300px;}
 }
 </style>
 </head>
 <body>
 <div class="dashboard-container">
-<nav class="sidebar">
-  <button class="sidebar-close" aria-label="Close menu"><i class="fas fa-times"></i></button>
+<button id="sidebarToggle" class="sidebar-toggle" aria-label="Toggle menu">
+  <i class="fas fa-bars"></i>
+</button>
+
+<nav class="sidebar" id="sidebar">
+  <button class="sidebar-close" id="sidebarClose" aria-label="Close menu">
+    <i class="fas fa-times"></i>
+  </button>
   <div class="sidebar-header"><h3><i class="fas fa-dumbbell"></i> FitLife</h3></div>
   <ul class="nav-menu">
     <li class="nav-item active" data-section="dashboard"><i class="fas fa-tachometer-alt"></i> Dashboard</li>
     <li class="nav-item" data-section="workouts"><i class="fas fa-dumbbell"></i> Workouts</li>
-    <li class="nav-item" data-section="nutrition"><i class="fas fa-apple-alt"></i> Nutrition</li>
     <li class="nav-item" data-section="progress"><i class="fas fa-chart-line"></i> Progress</li>
     <li class="nav-item" data-section="profile"><i class="fas fa-user"></i> Profile</li>
   </ul>
 </nav>
 
 <main class="main-content">
-<button id="sidebarToggle" class="sidebar-toggle" aria-label="Toggle menu"><i class="fas fa-bars"></i></button>
-
 <header class="header">
   <div class="header-logo-section">
     <img src="https://seeklogo.com/images/F/fit-life-logo-B9A7A4B092-seeklogo.com.png" alt="FitLife Logo" style="height:52px;">
@@ -536,365 +914,532 @@ body{
 </div>
 
 <div id="workouts" class="section">
-  <h2><i class="fas fa-dumbbell"></i> My Workouts</h2>
-  <div id="workoutList" class="workout-grid"></div>
-</div>
+  <div class="workout-header-container">
+    <h2><i class="fas fa-dumbbell"></i> My Workouts</h2>
+    <div class="workout-tabs">
+      <button class="workout-tab-btn active" data-tab="today"><i class="fas fa-calendar-day"></i> Today</button>
+      <button class="workout-tab-btn" data-tab="custom"><i class="fas fa-calendar-alt"></i> Schedule</button>
+    </div>
+  </div>
 
-<div id="nutrition" class="section">
-  <h2><i class="fas fa-apple-alt"></i> Nutrition Plan</h2>
-  <div class="nutrition-form">
-    <div class="form-grid">
-      <input id="ai-age" type="number" placeholder="Age" />
-      <select id="ai-sex">
-        <option value="">Select Sex</option>
-        <option value="male">Male</option>
-        <option value="female">Female</option>
-        <option value="other">Other</option>
-      </select>
-      <input id="ai-weight" type="number" placeholder="Weight (kg)" />
-      <input id="ai-height" type="number" placeholder="Height (cm)" />
-      <select id="ai-activity">
-        <option value="">Activity Level</option>
-        <option value="sedentary">Sedentary</option>
-        <option value="light">Light Activity</option>
-        <option value="moderate">Moderate Activity</option>
-        <option value="active">Very Active</option>
-      </select>
-      <select id="ai-goal">
-        <option value="">Fitness Goal</option>
-        <option value="lose">Lose Weight</option>
-        <option value="maintain">Maintain Weight</option>
-        <option value="gain">Gain Muscle</option>
-      </select>
-      <input id="ai-meals" type="number" placeholder="Meals/day (e.g. 3)" />
+  <div id="todayWorkout" class="workout-content">
+    <div class="today-header">
+      <div>
+        <h3 id="todayDayName">Monday</h3>
+        <p class="date-info" id="todayDate">October 5, 2025</p>
+      </div>
+      <div class="today-header-right">
+        <p><i class="fas fa-fire"></i> Stay Consistent!</p>
+      </div>
     </div>
-    <textarea id="ai-preferences" placeholder="Dietary preferences, allergies, or foods to avoid..." style="width:100%;min-height:90px;margin-bottom:14px;padding:12px 16px;border:2px solid rgba(26,42,108,0.15);border-radius:8px;font-family:inherit;"></textarea>
-    <div class="form-actions">
-      <button id="generateDietBtn" class="start-btn"><i class="fas fa-magic"></i> Generate AI Diet</button>
-      <button id="clearDietBtn" class="done-btn"><i class="fas fa-eraser"></i> Clear</button>
-      <div id="nutrition-loading"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+    <div id="todayWorkoutContent"></div>
+  </div>
+
+  <div id="customSchedule" class="workout-content" style="display:none;">
+    <div class="custom-schedule-container">
+      <h3><i class="fas fa-calendar-alt"></i> Build Your Weekly Schedule</h3>
+      
+      <div class="day-selector">
+        <button class="day-btn active" data-day="Monday">Monday</button>
+        <button class="day-btn" data-day="Tuesday">Tuesday</button>
+        <button class="day-btn" data-day="Wednesday">Wednesday</button>
+        <button class="day-btn" data-day="Thursday">Thursday</button>
+        <button class="day-btn" data-day="Friday">Friday</button>
+        <button class="day-btn" data-day="Saturday">Saturday</button>
+        <button class="day-btn" data-day="Sunday">Sunday</button>
+      </div>
+
+      <div class="exercise-picker">
+        <h4><i class="fas fa-search"></i> Add Exercises</h4>
+        <input type="text" class="exercise-search" id="exerciseSearch" placeholder="Search exercises...">
+        <div class="exercise-list" id="exerciseList"></div>
+      </div>
+
+      <div class="selected-exercises">
+        <h4><i class="fas fa-check-circle"></i> <span id="currentDayLabel">Monday</span>'s Workout</h4>
+        <div id="selectedExercisesList"></div>
+      </div>
+
+      <button class="save-schedule-btn" id="saveScheduleBtn">
+        <i class="fas fa-save"></i> Save My Schedule
+      </button>
     </div>
-    <pre id="aiDietResult" style="display:none;"></pre>
-    <p id="aiDietError" style="display:none;"></p>
   </div>
 </div>
 
 <div id="progress" class="section">
   <h2><i class="fas fa-chart-line"></i> Progress Tracking</h2>
-  <div class="progress-chart" id="progressChart">
-    <i class="fas fa-chart-area" style="margin-right:8px;"></i> Weekly Progress Chart Coming Soon
+  
+  <!-- Goal Display -->
+  <div class="goal-display">
+    <p id="userGoalText"><i class="fas fa-bullseye"></i> Your goal is not set.</p>
   </div>
-  <div id="progressContent">
-    <p><strong>Goal:</strong> Weight Loss</p>
-    <p><strong>Progress:</strong> 65% Complete</p>
-    <p><strong>Next Target:</strong> Lose 2 kg</p>
+
+  <!-- Weight Input Section -->
+  <div class="weight-input-section">
+    <h3><i class="fas fa-plus-circle"></i> Add Weekly Weight Entry</h3>
+    <div class="weight-form">
+      <input type="date" id="weightDate" />
+      <input type="number" id="weightValue" placeholder="Weight (kg)" step="0.1" min="0" />
+      <button class="add-weight-btn" id="addWeightBtn">
+        <i class="fas fa-plus"></i> Add Entry
+      </button>
+    </div>
+  </div>
+
+  <!-- Chart Display -->
+  <div class="chart-container">
+    <h3><i class="fas fa-chart-area"></i> Your Progress Chart</h3>
+    <div class="chart-wrapper">
+      <canvas id="progressChart"></canvas>
+    </div>
+    
+    <!-- Progress Summary -->
+    <div class="progress-summary">
+      <div class="summary-card">
+        <h5>Starting Weight</h5>
+        <p id="startWeight">--</p>
+      </div>
+      <div class="summary-card">
+        <h5>Current Weight</h5>
+        <p id="currentWeight">--</p>
+      </div>
+      <div class="summary-card">
+        <h5>Total Change</h5>
+        <p id="totalChange">--</p>
+      </div>
+      <div class="summary-card">
+        <h5>Goal Status</h5>
+        <p id="goalStatus">Not Set</p>
+      </div>
+    </div>
   </div>
 </div>
 
 <div id="profile" class="section">
   <h2><i class="fas fa-user"></i> Profile Settings</h2>
-  <p>Update your profile information, preferences, and account settings here.</p>
+  <p>Here you will be able to change your fitness goal and other profile information.</p>
 </div>
 </main>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyCYOzxUWAPd4ifIKUOXY0TQQvWJStRaeYk",
-  authDomain: "fitlife-8e768.firebaseapp.com",
-  projectId: "fitlife-8e768",
-  storageBucket: "fitlife-8e768.appspot.com",
-  messagingSenderId: "721770808033",
-  appId: "1:721770808033:web:adb64336eb674c3679eda0",
-  measurementId: "G-BLNN73G7VK"
-};
-if (!window.firebase || !firebase.apps || firebase.apps.length === 0) {
+  const firebaseConfig = {
+    apiKey: "AIzaSyCYOzxUWAPd4ifIKUOXY0TQQvWJStRaeYk",
+    authDomain: "fitlife-8e768.firebaseapp.com",
+    projectId: "fitlife-8e768",
+    storageBucket: "fitlife-8e768.appspot.com",
+    messagingSenderId: "721770808033",
+    appId: "1:721770808033:web:adb64336eb674c3679eda0"
+  };
   firebase.initializeApp(firebaseConfig);
-}
-const auth = firebase.auth();
 
-auth.onAuthStateChanged(user => {
-  if (!user) {
-    window.location.href = 'index.html.html';
-    return;
-  }
-  const nameEl = document.getElementById("userName");
-  const emailEl = document.getElementById("userEmail");
-  const avatar = document.getElementById("userAvatar");
-  const displayName = user.displayName || '';
-  const email = user.email || '';
-  if (nameEl) nameEl.textContent = displayName || email || 'User';
-  if (emailEl) emailEl.textContent = email;
-  if (avatar) avatar.textContent = (displayName ? displayName.charAt(0).toUpperCase() : (email ? email.charAt(0).toUpperCase() : 'U'));
-});
+  const auth = firebase.auth();
+  const db = firebase.firestore();
 
-// Section switching
-const navItems = document.querySelectorAll('.nav-item');
-const sections = {
-  dashboard: document.getElementById('dashboard'),
-  workouts: document.getElementById('workouts'),
-  nutrition: document.getElementById('nutrition'),
-  progress: document.getElementById('progress'),
-  profile: document.getElementById('profile')
-};
+  let currentUserData = null; // Store user profile data
+  let progressChart = null;
 
-navItems.forEach(item => {
-  item.addEventListener('click', () => {
-    navItems.forEach(i => i.classList.remove('active'));
-    item.classList.add('active');
-    Object.keys(sections).forEach(k => {
-      sections[k].style.display = k === item.dataset.section ? 'block' : 'none';
-    });
-    if (window.innerWidth <= 800) closeSidebar();
-  });
-});
-
-// Sidebar toggle
-const sidebar = document.querySelector('.sidebar');
-const overlay = document.getElementById('overlay');
-const toggleBtn = document.getElementById('sidebarToggle');
-const closeBtn = document.querySelector('.sidebar-close');
-
-function openSidebar() {
-  sidebar.classList.add('open');
-  overlay.classList.add('show');
-  document.body.style.overflow = 'hidden';
-}
-function closeSidebar() {
-  sidebar.classList.remove('open');
-  overlay.classList.remove('show');
-  document.body.style.overflow = '';
-}
-
-if (toggleBtn) toggleBtn.addEventListener('click', (e) => {
-  e.preventDefault();
-  sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
-});
-if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
-if (overlay) overlay.addEventListener('click', closeSidebar);
-
-window.addEventListener('resize', () => {
-  if (window.innerWidth > 800) closeSidebar();
-});
-
-// Logout
-async function logout() {
-  const btns = document.querySelectorAll('.logout-btn');
-  btns.forEach(b => b.disabled = true);
-  try {
-    await auth.signOut();
-    window.location.href = `${window.location.origin}/index.html.html`;
-  } catch (err) {
-    console.error('Sign out error', err);
-    btns.forEach(b => b.disabled = false);
-  }
-}
-document.querySelectorAll('.logout-btn').forEach(btn => {
-  btn.addEventListener('click', (e) => { e.preventDefault(); logout(); });
-});
-
-// Workouts
-const workoutsData = [
-  { name: "Full Body Strength", gif: "https://i.gifer.com/7efs.gif", difficulty: "intermediate" },
-  { name: "Cardio Run", gif: "https://i.gifer.com/7vH9.gif", difficulty: "beginner" },
-  { name: "Push Ups", gif: "https://i.gifer.com/7vG3.gif", difficulty: "beginner" },
-  { name: "Squats", gif: "https://i.gifer.com/7fXY.gif", difficulty: "beginner" },
-  { name: "Plank", gif: "https://i.gifer.com/7fZ4.gif", difficulty: "intermediate" },
-  { name: "Lunges", gif: "https://i.gifer.com/7gT1.gif", difficulty: "intermediate" },
-  { name: "Bicep Curls", gif: "https://i.gifer.com/7hG7.gif", difficulty: "beginner" },
-  { name: "Tricep Dips", gif: "https://i.gifer.com/7hH8.gif", difficulty: "intermediate" },
-  { name: "Mountain Climbers", gif: "https://i.gifer.com/7hL9.gif", difficulty: "advanced" },
-  { name: "Burpees", gif: "https://i.gifer.com/7hP0.gif", difficulty: "advanced" }
-];
-
-const workoutList = document.getElementById('workoutList');
-workoutsData.forEach((workout) => {
-  let currentSet = 1;
-  let timerInterval;
-
-  const card = document.createElement('div');
-  card.className = 'workout-card';
-
-  const badge = document.createElement('span');
-  badge.className = `workout-badge ${workout.difficulty}`;
-  badge.textContent = workout.difficulty.charAt(0).toUpperCase() + workout.difficulty.slice(1);
-  card.appendChild(badge);
-
-  const img = document.createElement('img');
-  img.src = workout.gif;
-  img.className = 'workout-gif';
-  img.alt = workout.name;
-
-  const title = document.createElement('h3');
-  title.textContent = `${workout.name} - Set ${currentSet}/3`;
-
-  const timerEl = document.createElement('div');
-  timerEl.className = 'timer';
-  timerEl.textContent = "Press Start";
-
-  const startBtn = document.createElement('button');
-  startBtn.className = 'start-btn';
-  startBtn.innerHTML = '<i class="fas fa-play"></i> Start';
-
-  const doneBtn = document.createElement('button');
-  doneBtn.className = 'done-btn';
-  doneBtn.innerHTML = '<i class="fas fa-check"></i> Done';
-  doneBtn.disabled = true;
-
-  const btnContainer = document.createElement('div');
-  btnContainer.className = 'btn-container';
-  btnContainer.appendChild(startBtn);
-  btnContainer.appendChild(doneBtn);
-
-  card.appendChild(img);
-  card.appendChild(title);
-  card.appendChild(timerEl);
-  card.appendChild(btnContainer);
-  workoutList.appendChild(card);
-
-  function formatTime(sec) {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  }
-
-  function startTimer(duration, callback) {
-    let time = duration;
-    timerEl.textContent = formatTime(time);
-    timerInterval = setInterval(() => {
-      time--;
-      timerEl.textContent = formatTime(time);
-      if (time <= 0) {
-        clearInterval(timerInterval);
-        callback();
-      }
-    }, 1000);
-  }
-
-  startBtn.onclick = () => {
-    startBtn.disabled = true;
-    doneBtn.disabled = false;
-    startTimer(300, completeSet);
-  };
-
-  doneBtn.onclick = () => {
-    clearInterval(timerInterval);
-    completeSet();
-  };
-
-  function completeSet() {
-    if (currentSet < 3) {
-      timerEl.textContent = "1 min break";
-      startBtn.disabled = true;
-      doneBtn.disabled = true;
-      setTimeout(() => {
-        currentSet++;
-        title.textContent = `${workout.name} - Set ${currentSet}/3`;
-        timerEl.textContent = "Press Start";
-        startBtn.disabled = false;
-      }, 60000);
-    } else {
-      card.classList.add("completed");
-      const check = document.createElement('span');
-      check.className = "completed-check";
-      check.innerHTML = '<i class="fas fa-check-circle"></i>';
-      card.appendChild(check);
-      timerEl.textContent = "Complete! 3 min rest";
-      startBtn.disabled = true;
-      doneBtn.disabled = true;
-      setTimeout(() => {
-        const counter = document.getElementById('workoutsCompleted');
-        counter.textContent = parseInt(counter.textContent) + 1;
-        const progressBar = document.getElementById('progress-workouts');
-        const newWidth = Math.min(100, parseInt(progressBar.style.width) + 10);
-        progressBar.style.width = `${newWidth}%`;
-      }, 180000);
+  auth.onAuthStateChanged(async (user) => {
+    if (!user) {
+      window.location.href = 'login.html';
+      return;
     }
-  }
-});
-
-// Nutrition AI
-(function() {
-  const genBtn = document.getElementById('generateDietBtn');
-  const clearBtn = document.getElementById('clearDietBtn');
-  const loadingEl = document.getElementById('nutrition-loading');
-  const resultEl = document.getElementById('aiDietResult');
-  const errEl = document.getElementById('aiDietError');
-
-  function showLoading(on) {
-    if (!loadingEl) return;
-    loadingEl.style.opacity = on ? '1' : '0';
-  }
-  function showResult(text) {
-    if (!resultEl) return;
-    resultEl.style.display = text ? 'block' : 'none';
-    resultEl.textContent = text || '';
-  }
-  function showError(msg) {
-    if (!errEl) return;
-    errEl.style.display = msg ? 'block' : 'none';
-    errEl.textContent = msg || '';
-  }
-
-  genBtn?.addEventListener('click', async (e) => {
-    e.preventDefault();
-    showError('');
-    showResult('');
-    showLoading(true);
-    genBtn.disabled = true;
-
-    const payload = {
-      age: document.getElementById('ai-age')?.value || '',
-      sex: document.getElementById('ai-sex')?.value || '',
-      weightKg: document.getElementById('ai-weight')?.value || '',
-      heightCm: document.getElementById('ai-height')?.value || '',
-      activity: document.getElementById('ai-activity')?.value || '',
-      goal: document.getElementById('ai-goal')?.value || '',
-      mealsPerDay: document.getElementById('ai-meals')?.value || '',
-      preferences: document.getElementById('ai-preferences')?.value || ''
-    };
 
     try {
-      const res = await fetch('http://localhost:3000/api/diet-plan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const text = await res.text();
-      let json;
-      try { json = text ? JSON.parse(text) : {}; } catch { json = null; }
-      if (!res.ok) {
-        const detail = (json && (json.error || json.detail)) || text || `Status ${res.status}`;
-        showError(`Server error: ${detail}`);
-      } else {
-        const plan = (json && json.plan) || text || '';
-        if (!plan) showError('Empty response from API');
-        else showResult(plan);
+      const userDoc = await db.collection('users').doc(user.uid).get();
+      if (!userDoc.exists || !userDoc.data().onboardingComplete) {
+        window.location.href = 'onboarding.html';
+        return;
       }
+      
+      currentUserData = userDoc.data();
+      
+      // Update UI with user data
+      const nameEl = document.getElementById("userName");
+      const emailEl = document.getElementById("userEmail");
+      const avatar = document.getElementById("userAvatar");
+      const displayName = currentUserData.displayName || user.email || "User";
+      
+      if (nameEl) nameEl.textContent = displayName;
+      if (emailEl) emailEl.textContent = user.email;
+      if (avatar) avatar.textContent = displayName.charAt(0).toUpperCase();
+
+      // Initialize dashboard modules
+      loadSchedule();
+      renderTodaysWorkout();
+      loadProgressData();
+
     } catch (err) {
-      console.error(err);
-      showError('Network error. Ensure the API endpoint is available.');
-    } finally {
-      showLoading(false);
-      genBtn.disabled = false;
+      console.error('Error checking user profile:', err);
+      window.location.href = 'onboarding.html';
     }
   });
 
-  clearBtn?.addEventListener('click', (e) => {
-    e.preventDefault();
-    ['ai-age', 'ai-sex', 'ai-weight', 'ai-height', 'ai-activity', 'ai-goal', 'ai-meals', 'ai-preferences'].forEach(id => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      if (el.tagName === 'SELECT') el.selectedIndex = 0;
-      else el.value = '';
+  const navItems = document.querySelectorAll('.nav-item');
+  const sections = {
+    dashboard: document.getElementById('dashboard'),
+    workouts: document.getElementById('workouts'),
+    progress: document.getElementById('progress'),
+    profile: document.getElementById('profile')
+  };
+
+  navItems.forEach(item => {
+    item.addEventListener('click', () => {
+      navItems.forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+      Object.keys(sections).forEach(k => {
+        sections[k].style.display = k === item.dataset.section ? 'block' : 'none';
+      });
+      closeSidebar();
     });
-    showResult('');
-    showError('');
   });
-})();
+
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('overlay');
+  const toggleBtn = document.getElementById('sidebarToggle');
+  const closeBtn = document.getElementById('sidebarClose');
+
+  function openSidebar() {
+    sidebar.classList.add('open');
+    overlay.classList.add('show');
+    toggleBtn.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeSidebar() {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('show');
+    toggleBtn.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  function toggleSidebar() {
+    if (sidebar.classList.contains('open')) {
+      closeSidebar();
+    } else {
+      openSidebar();
+    }
+  }
+
+  if (toggleBtn) toggleBtn.addEventListener('click', toggleSidebar);
+  if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+  if (overlay) overlay.addEventListener('click', closeSidebar);
+
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 900) {
+      closeSidebar();
+    }
+  });
+
+  async function logout() {
+    const btns = document.querySelectorAll('.logout-btn');
+    btns.forEach(b => b.disabled = true);
+    try {
+      await auth.signOut();
+      window.location.href = 'login.html';
+    } catch (err) {
+      console.error('Sign out error', err);
+      btns.forEach(b => b.disabled = false);
+    }
+  }
+  document.querySelectorAll('.logout-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => { e.preventDefault(); logout(); });
+  });
+
+  const workoutTabs = document.querySelectorAll('.workout-tab-btn');
+  const todayWorkout = document.getElementById('todayWorkout');
+  const customSchedule = document.getElementById('customSchedule');
+
+  workoutTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      workoutTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      
+      if (tab.dataset.tab === 'today') {
+        todayWorkout.style.display = 'block';
+        customSchedule.style.display = 'none';
+      } else {
+        todayWorkout.style.display = 'none';
+        customSchedule.style.display = 'block';
+      }
+    });
+  });
+
+  function getCurrentDay() {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const today = new Date();
+    return days[today.getDay()];
+  }
+
+  function getFormattedDate() {
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const today = new Date();
+    return `${months[today.getMonth()]} ${today.getDate()}, ${today.getFullYear()}`;
+  }
+
+  const availableExercises = [
+    "Push Ups", "Squats", "Lunges", "Plank", "Burpees", "Mountain Climbers", "Jumping Jacks", 
+    "Bicep Curls", "Tricep Dips", "Leg Raises", "Crunches", "Russian Twists", "High Knees", 
+    "Sit Ups", "Deadlifts", "Bench Press", "Shoulder Press", "Lat Pulldown", "Pull Ups", 
+    "Dips", "Leg Press", "Calf Raises", "Cardio Run", "Cycling", "Swimming", "Rowing", "Jump Rope", "Box Jumps"
+  ];
+
+  let customWorkoutSchedule = {
+    Monday: [], Tuesday: [], Wednesday: [], Thursday: [], Friday: [], Saturday: [], Sunday: []
+  };
+  let currentDay = 'Monday';
+
+  function loadSchedule() {
+    const saved = localStorage.getItem('fitlifeCustomSchedule');
+    if (saved) {
+      try {
+        customWorkoutSchedule = JSON.parse(saved);
+      } catch (e) { console.error('Error loading schedule:', e); }
+    }
+  }
+
+  function saveSchedule() {
+    localStorage.setItem('fitlifeCustomSchedule', JSON.stringify(customWorkoutSchedule));
+  }
+
+  function renderTodaysWorkout() {
+    const today = getCurrentDay();
+    document.getElementById('todayDayName').textContent = today;
+    document.getElementById('todayDate').textContent = getFormattedDate();
+    
+    const todayExercises = customWorkoutSchedule[today] || [];
+    const container = document.getElementById('todayWorkoutContent');
+    
+    if (todayExercises.length === 0) {
+      container.innerHTML = `<div class="empty-workout"><i class="fas fa-calendar-plus"></i><h3>No Workout Scheduled for Today</h3><p>Create your custom workout schedule to see exercises here!</p><button class="btn-create-schedule" onclick="switchToCustomTab()"><i class="fas fa-plus-circle"></i> Create Schedule</button></div>`;
+      return;
+    }
+    
+    container.innerHTML = '<div class="today-exercises" id="todayExercisesList"></div>';
+    const exercisesList = document.getElementById('todayExercisesList');
+    
+    todayExercises.forEach((exercise, index) => {
+      const card = document.createElement('div');
+      card.className = 'today-exercise-card';
+      card.innerHTML = `<h4><i class="fas fa-dumbbell"></i> ${exercise}</h4><div class="exercise-details"><div class="exercise-detail-item"><i class="fas fa-redo"></i><span>Sets:</span><input type="number" placeholder="3" min="1" id="sets-${index}"></div><div class="exercise-detail-item"><i class="fas fa-hashtag"></i><span>Reps:</span><input type="number" placeholder="12" min="1" id="reps-${index}"></div><div class="exercise-detail-item"><i class="fas fa-clock"></i><span>Rest (sec):</span><input type="number" placeholder="60" min="0" id="rest-${index}"></div></div><button class="mark-complete-btn" onclick="markExerciseComplete(${index}, this)"><i class="fas fa-check"></i> Mark as Complete</button>`;
+      exercisesList.appendChild(card);
+    });
+  }
+
+  window.markExerciseComplete = function(index, btn) {
+    if (btn.classList.contains('completed')) return;
+    btn.classList.add('completed');
+    btn.innerHTML = '<i class="fas fa-check-circle"></i> Completed!';
+    const counter = document.getElementById('workoutsCompleted');
+    counter.textContent = parseInt(counter.textContent) + 1;
+    const progressBar = document.getElementById('progress-workouts');
+    const newWidth = Math.min(100, parseInt(progressBar.style.width) + 5);
+    progressBar.style.width = `${newWidth}%`;
+  };
+
+  window.switchToCustomTab = function() { document.querySelector('[data-tab="custom"]').click(); };
+
+  function renderExerciseList(filter = '') {
+    const exerciseList = document.getElementById('exerciseList');
+    exerciseList.innerHTML = '';
+    const filtered = availableExercises.filter(ex => ex.toLowerCase().includes(filter.toLowerCase()));
+    filtered.forEach(exercise => {
+      const item = document.createElement('div');
+      item.className = 'exercise-item';
+      item.textContent = exercise;
+      item.addEventListener('click', () => addExerciseToDay(exercise));
+      exerciseList.appendChild(item);
+    });
+  }
+
+  function addExerciseToDay(exercise) {
+    if (!customWorkoutSchedule[currentDay].includes(exercise)) {
+      customWorkoutSchedule[currentDay].push(exercise);
+      renderSelectedExercises();
+      renderTodaysWorkout();
+    }
+  }
+
+  function removeExerciseFromDay(exercise) {
+    customWorkoutSchedule[currentDay] = customWorkoutSchedule[currentDay].filter(ex => ex !== exercise);
+    renderSelectedExercises();
+    renderTodaysWorkout();
+  }
+
+  function renderSelectedExercises() {
+    const container = document.getElementById('selectedExercisesList');
+    container.innerHTML = '';
+    if (customWorkoutSchedule[currentDay].length === 0) {
+      container.innerHTML = '<p style="color:#999;text-align:center;padding:30px;font-size:1.05rem;">No exercises added yet. Select exercises from above.</p>';
+      return;
+    }
+    customWorkoutSchedule[currentDay].forEach(exercise => {
+      const card = document.createElement('div');
+      card.className = 'selected-exercise-card';
+      card.innerHTML = `<span class="exercise-name">${exercise}</span><button class="remove-exercise-btn" onclick="removeExerciseFromDay('${exercise}')"><i class="fas fa-trash"></i> Remove</button>`;
+      container.appendChild(card);
+    });
+  }
+
+  const dayButtons = document.querySelectorAll('.day-btn');
+  dayButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      dayButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentDay = btn.dataset.day;
+      document.getElementById('currentDayLabel').textContent = currentDay;
+      renderSelectedExercises();
+    });
+  });
+
+  const exerciseSearch = document.getElementById('exerciseSearch');
+  exerciseSearch.addEventListener('input', (e) => { renderExerciseList(e.target.value); });
+
+  document.getElementById('saveScheduleBtn').addEventListener('click', () => {
+    saveSchedule();
+    renderTodaysWorkout();
+    alert('✅ Your custom workout schedule has been saved successfully!');
+  });
+  
+  renderExerciseList();
+  renderSelectedExercises();
+
+  // **UPDATED** PROGRESS TRACKING FUNCTIONALITY
+  async function loadProgressData() {
+    if (!currentUserData) return;
+
+    // Display user's goal
+    const goalText = document.getElementById('userGoalText');
+    const goal = currentUserData.fitnessGoal;
+    const goalDisplayMap = {
+      lose: 'Lose Weight',
+      maintain: 'Maintain Weight',
+      gain: 'Gain Muscle'
+    };
+    if(goalText) goalText.innerHTML = `<i class="fas fa-bullseye"></i> Your Goal: <strong>${goalDisplayMap[goal] || 'Not Set'}</strong>`;
+    
+    // Set today's date as default
+    document.getElementById('weightDate').valueAsDate = new Date();
+
+    // Fetch weight entries
+    try {
+      const snapshot = await db.collection('users').doc(auth.currentUser.uid).collection('weightEntries').orderBy('timestamp', 'asc').get();
+      const weightData = snapshot.docs.map(doc => doc.data());
+      updateChart(weightData);
+      updateSummary(weightData);
+    } catch(err) {
+      console.error("Error fetching weight data: ", err);
+    }
+  }
+
+  document.getElementById('addWeightBtn').addEventListener('click', async () => {
+    const dateInput = document.getElementById('weightDate');
+    const weightInput = document.getElementById('weightValue');
+    const date = dateInput.value;
+    const weight = parseFloat(weightInput.value);
+
+    if (!date || !weight || weight <= 0) {
+      alert('Please enter a valid date and weight!');
+      return;
+    }
+
+    try {
+      await db.collection('users').doc(auth.currentUser.uid).collection('weightEntries').add({
+        weight: weight,
+        date: date,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      
+      // Also update the currentWeight in the main user document
+      await db.collection('users').doc(auth.currentUser.uid).update({ currentWeight: weight });
+
+      weightInput.value = '';
+      dateInput.valueAsDate = new Date();
+      loadProgressData(); // Refresh data
+      alert('✅ Weight entry added successfully!');
+    } catch(err) {
+      console.error("Error adding weight entry: ", err);
+      alert("Error saving entry. Please try again.");
+    }
+  });
+
+  function initChart() {
+    const ctx = document.getElementById('progressChart').getContext('2d');
+    progressChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Weight (kg)',
+          data: [],
+          borderColor: '#1a2a6c',
+          backgroundColor: 'rgba(26, 42, 108, 0.1)',
+          borderWidth: 3,
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          pointBackgroundColor: '#fdbb2d',
+          pointBorderColor: '#1a2a6c',
+          pointBorderWidth: 2,
+          tension: 0.4,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: true, position: 'top' } },
+        scales: {
+          y: { beginAtZero: false, ticks: { callback: (value) => value + ' kg' } }
+        }
+      }
+    });
+  }
+
+  function updateChart(weightData) {
+    if (!progressChart) initChart();
+    
+    const labels = weightData.map(entry => {
+      const date = new Date(entry.date);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+    const data = weightData.map(entry => entry.weight);
+    
+    progressChart.data.labels = labels;
+    progressChart.data.datasets[0].data = data;
+    progressChart.update();
+  }
+
+  function updateSummary(weightData) {
+    if (!currentUserData || weightData.length === 0) {
+      document.getElementById('startWeight').textContent = currentUserData?.startingWeight ? currentUserData.startingWeight.toFixed(1) + ' kg' : '--';
+      document.getElementById('currentWeight').textContent = '--';
+      document.getElementById('totalChange').textContent = '--';
+      document.getElementById('goalStatus').textContent = 'No Entries';
+      return;
+    }
+    
+    const startWeight = currentUserData.startingWeight;
+    const currentWeight = weightData[weightData.length - 1].weight;
+    const change = currentWeight - startWeight;
+
+    document.getElementById('startWeight').textContent = startWeight.toFixed(1) + ' kg';
+    document.getElementById('currentWeight').textContent = currentWeight.toFixed(1) + ' kg';
+    document.getElementById('totalChange').textContent = (change >= 0 ? '+' : '') + change.toFixed(1) + ' kg';
+    
+    let goalStatus = 'Not Set';
+    const goal = currentUserData.fitnessGoal;
+    if (goal) {
+      if (goal === 'lose' && change < 0) goalStatus = '✓ On Track';
+      else if (goal === 'gain' && change > 0) goalStatus = '✓ On Track';
+      else if (goal === 'maintain' && Math.abs(change) < 2) goalStatus = '✓ Maintaining';
+      else goalStatus = 'Needs Attention';
+    }
+    document.getElementById('goalStatus').textContent = goalStatus;
+  }
 </script>
 </body>
 </html>
-
